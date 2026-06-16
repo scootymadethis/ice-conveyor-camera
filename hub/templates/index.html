@@ -3,7 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <title>ESP32 Camera Control</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}"
+    />
   </head>
   <body>
     <main class="page">
@@ -46,6 +49,31 @@
               Su ESP32-CAM numero più basso = qualità migliore. 10-15 è spesso
               più stabile di 5.
             </div>
+          </div>
+
+          <div class="field">
+            <div class="quality-line">
+              <label for="aeLevel">Compensazione esposizione (AE)</label>
+              <div id="aeLevelValue" class="quality-value">0</div>
+            </div>
+
+            <input
+              type="range"
+              min="-2"
+              max="2"
+              value="0"
+              step="1"
+              id="aeLevel"
+            />
+
+            <div class="hint">
+              Da -2 (scuro) a +2 (luminoso). Utile in ambienti bui. Richiede
+              auto-esposizione attiva.
+            </div>
+
+            <button id="aeBtn" onclick="applyAeLevel()" style="margin-top: 8px">
+              Applica esposizione
+            </button>
           </div>
 
           <button id="applyBtn" onclick="applyConfig()">

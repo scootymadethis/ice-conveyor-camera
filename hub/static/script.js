@@ -8,6 +8,14 @@ const bytesEl = document.getElementById("bytes");
 const framesizeEl = document.getElementById("framesize");
 const qualityEl = document.getElementById("quality");
 const qualityValueEl = document.getElementById("qualityValue");
+const aeLevelEl = document.getElementById("aeLevel");
+const aeLevelValueEl = document.getElementById("aeLevelValue");
+const aeBtn = document.getElementById("aeBtn");
+
+aeLevelEl.addEventListener("input", () => {
+  const v = Number(aeLevelEl.value);
+  aeLevelValueEl.textContent = v > 0 ? "+" + v : String(v);
+});
 
 qualityEl.addEventListener("input", () => {
   qualityValueEl.textContent = qualityEl.value;
@@ -16,6 +24,7 @@ qualityEl.addEventListener("input", () => {
 function setBusy(isBusy) {
   captureBtn.disabled = isBusy;
   applyBtn.disabled = isBusy;
+  aeBtn.disabled = isBusy;
 }
 
 function showEmpty() {
@@ -109,6 +118,35 @@ async function captureFrame() {
     showFrame();
   } catch (err) {
     status.textContent = "Errore web: " + err;
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function applyAeLevel() {
+  setBusy(true);
+
+  const ae_level = Number(aeLevelEl.value);
+  status.textContent = "Invio compensazione esposizione...";
+
+  try {
+    const res = await fetch("/ae-level", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ae_level }),
+    });
+
+    const data = await res.json();
+
+    if (!data.ok) {
+      status.textContent = "Errore AE: " + data.error;
+      return;
+    }
+
+    const label = ae_level > 0 ? "+" + ae_level : String(ae_level);
+    status.textContent = "Esposizione applicata: AE Level " + label;
+  } catch (err) {
+    status.textContent = "Errore web AE: " + err;
   } finally {
     setBusy(false);
   }

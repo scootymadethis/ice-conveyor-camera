@@ -221,3 +221,29 @@ bool camera_set_basic_settings(const char *framesize_name, int jpeg_quality)
     Serial.println("[camera] settings applied OK");
     return true;
 }
+bool camera_set_ae_level(int ae_level)
+{
+    if (ae_level < -2 || ae_level > 2)
+    {
+        Serial.printf("[camera] invalid ae_level: %d (must be -2..+2)\n", ae_level);
+        return false;
+    }
+
+    sensor_t *sensor = esp_camera_sensor_get();
+
+    if (!sensor)
+    {
+        Serial.println("[camera] sensor handle unavailable");
+        return false;
+    }
+
+    // mi assicuro che l'auto-esposizione sia abilitata prima di settare il livello
+    sensor->set_exposure_ctrl(sensor, 1);
+    sensor->set_gain_ctrl(sensor, 1);
+
+    int r = sensor->set_ae_level(sensor, ae_level);
+
+    Serial.printf("[camera] ae_level set to %d (result=%d)\n", ae_level, r);
+
+    return r == 0;
+}

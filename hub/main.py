@@ -228,6 +228,45 @@ def has_frame_route():
         "exists": LATEST_FRAME.exists()
     })
 
+@app.route("/ae-level", methods=["POST"])
+def ae_level_route():
+    global sock, sock_file
+
+    data = request.get_json(force=True)
+
+    try:
+        ae_level = int(data.get("ae_level", 0))
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "ae_level must be between -2 and +2"})
+    
+    with sock_lock:
+        try:
+            ensure_esp_connected()
+
+            command = f"ae_level {ae_level}\n"
+            print("[esp] sending:", command.strip())
+
+            sock.sendall(command.encode())
+
+            # legge risposta AE_OK / AE_ERROR
+            while True:
+                line = sock_file.readline()
+                if not line:
+                    raise ConnectionError("ESP32 closed the connection")
+                text = line.decode(errors="ignore").strip()
+                if not text:
+                    continue
+                print("[esp]", text)
+                if text.startswith("AE_OK"):
+                    return jsonify({"ok": True, "ae_level": ae_level})
+                if text.startswith("AE_ERROR"):
+                    return jsonify({"ok": False, "error": text})
+                
+        except Exception as e:
+            print("[esp] ae_level error:", e)
+            close_esp_connection()
+            return jsonify({"ok": False, "error": str(e)})
+
 @app.route("/config", methods=["POST"])
 def config_route():
     global sock, sock_file

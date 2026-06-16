@@ -209,3 +209,17 @@ button:disabled {
     flex-direction: column;
   }
 }
+
+#aeBtn {
+  background: #d97706;
+}
+
+#aeBtn:hover {
+  filter: brightness(1.15);
+}
+
+#aeBtn:disabled {
+  background: #374151;
+  color: #9ca3af;
+  filter: none;
+}

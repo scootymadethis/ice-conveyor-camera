@@ -180,6 +180,31 @@ void loop()
                 activeClient.printf("CONFIG_ERROR failed %s %d\n", framesize_name, quality);
             }
         }
+        else if (message.startsWith("ae_level "))
+        {
+            Serial.print("[main] ae_level request: ");
+            Serial.println(message);
+
+            int ae_level = 0;
+            int parsed = sscanf(message.c_str(), "ae_level %d", &ae_level);
+
+            if (parsed != 1)
+            {
+                activeClient.println("AE_ERROR invalid format");
+                return;
+            }
+
+            bool ok = camera_set_ae_level(ae_level);
+
+            if (ok)
+            {
+                activeClient.printf("AE_OK %d\n", ae_level);
+            }
+            else
+            {
+                activeClient.printf("AE_ERROR failed %d\n", ae_level);
+            }
+        }
         else
         {
             activeClient.print("UNKNOWN_COMMAND ");

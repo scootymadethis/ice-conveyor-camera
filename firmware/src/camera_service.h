@@ -10,3 +10,4 @@ camera_fb_t *camera_capture();
 void camera_release(camera_fb_t *fb);
 
 bool camera_set_basic_settings(const char *framesize_name, int jpeg_quality);
+bool camera_set_ae_level(int ae_level);
