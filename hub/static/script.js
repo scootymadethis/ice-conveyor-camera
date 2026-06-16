@@ -1,0 +1,117 @@
+const status = document.getElementById("status");
+const img = document.getElementById("frame");
+const emptyState = document.getElementById("emptyState");
+const captureBtn = document.getElementById("captureBtn");
+const applyBtn = document.getElementById("applyBtn");
+const filenameEl = document.getElementById("filename");
+const bytesEl = document.getElementById("bytes");
+const framesizeEl = document.getElementById("framesize");
+const qualityEl = document.getElementById("quality");
+const qualityValueEl = document.getElementById("qualityValue");
+
+qualityEl.addEventListener("input", () => {
+  qualityValueEl.textContent = qualityEl.value;
+});
+
+function setBusy(isBusy) {
+  captureBtn.disabled = isBusy;
+  applyBtn.disabled = isBusy;
+}
+
+function showEmpty() {
+  img.style.display = "none";
+  img.removeAttribute("src");
+  emptyState.style.display = "block";
+}
+
+function showFrame() {
+  emptyState.style.display = "none";
+  img.style.display = "block";
+  img.src = "/latest.jpg?t=" + Date.now();
+}
+
+async function checkExistingFrame() {
+  try {
+    const res = await fetch("/has-frame");
+    const data = await res.json();
+
+    if (data.exists) {
+      showFrame();
+      status.textContent = "Ultimo frame caricato.";
+    } else {
+      showEmpty();
+    }
+  } catch (err) {
+    showEmpty();
+    status.textContent = "Pronto.";
+  }
+}
+
+async function applyConfig() {
+  setBusy(true);
+
+  const framesize = framesizeEl.value;
+  const quality = Number(qualityEl.value);
+
+  status.textContent = "Invio configurazione camera...";
+
+  try {
+    const res = await fetch("/config", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        framesize: framesize,
+        quality: quality,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!data.ok) {
+      status.textContent = "Errore configurazione: " + data.error;
+      return;
+    }
+
+    status.textContent =
+      "Configurazione applicata: " +
+      data.framesize +
+      ", quality " +
+      data.quality;
+  } catch (err) {
+    status.textContent = "Errore web config: " + err;
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function captureFrame() {
+  setBusy(true);
+  status.textContent = "Richiesta frame in corso...";
+
+  try {
+    const res = await fetch("/capture", {
+      method: "POST",
+    });
+
+    const data = await res.json();
+
+    if (!data.ok) {
+      status.textContent = "Errore: " + data.error;
+      return;
+    }
+
+    status.textContent = "Frame salvato correttamente.";
+    filenameEl.textContent = "File: " + data.filename;
+    bytesEl.textContent = "Dimensione: " + data.bytes + " bytes";
+
+    showFrame();
+  } catch (err) {
+    status.textContent = "Errore web: " + err;
+  } finally {
+    setBusy(false);
+  }
+}
+
+checkExistingFrame();

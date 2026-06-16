@@ -1,0 +1,83 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>ESP32 Camera Control</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <main class="page">
+      <div class="header">
+        <h1>ESP32 Camera</h1>
+        <div class="subtitle">
+          Configura risoluzione e qualità JPEG, poi richiedi un frame all'ESP32.
+        </div>
+      </div>
+
+      <div class="layout">
+        <aside class="panel">
+          <h2>Configurazione camera</h2>
+
+          <div class="field">
+            <label for="framesize">Risoluzione</label>
+            <select id="framesize">
+              <option value="QVGA">QVGA - 320x240</option>
+              <option value="VGA">VGA - 640x480</option>
+              <option value="SVGA">SVGA - 800x600</option>
+              <option value="XGA">XGA - 1024x768</option>
+              <option value="HD" selected>HD - 1280x720</option>
+              <option value="SXGA">SXGA - 1280x1024</option>
+              <option value="UXGA">UXGA - 1600x1200</option>
+            </select>
+            <div class="hint">
+              Risoluzioni alte generano JPEG più grandi e richiedono più tempo.
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="quality-line">
+              <label for="quality">Qualità JPEG</label>
+              <div id="qualityValue" class="quality-value">10</div>
+            </div>
+
+            <input id="quality" type="range" min="4" max="30" value="10" />
+
+            <div class="hint">
+              Su ESP32-CAM numero più basso = qualità migliore. 10-15 è spesso
+              più stabile di 5.
+            </div>
+          </div>
+
+          <button id="applyBtn" onclick="applyConfig()">
+            Applica configurazione
+          </button>
+          <button id="captureBtn" class="secondary" onclick="captureFrame()">
+            Scatta frame
+          </button>
+        </aside>
+
+        <section>
+          <div id="status" class="status">Pronto.</div>
+
+          <div class="viewer">
+            <div id="emptyState" class="empty">
+              <div class="empty-title">Nessun frame ricevuto</div>
+              <div class="empty-subtitle">
+                Premi “Scatta frame” per acquisire la prima immagine.
+              </div>
+            </div>
+
+            <img id="frame" alt="" />
+          </div>
+
+          <div class="meta">
+            <div id="filename">File: —</div>
+            <div id="bytes">Dimensione: —</div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+  </body>
+</html>

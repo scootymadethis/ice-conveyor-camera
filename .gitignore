@@ -1,0 +1,29 @@
+# Secrets — never commit real Wi-Fi / hub credentials
+firmware/include/secrets.h
+
+# Captured dataset
+data/
+
+# PlatformIO
+.pio/
+firmware/.pio/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+hub/.venv/
+firmware/.venv/
+firmware/frames/
+server-tcp/frames/
+hub/frames/
+.pytest_cache/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/
