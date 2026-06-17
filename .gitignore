@@ -20,6 +20,7 @@ firmware/frames/
 server-tcp/frames/
 hub/frames/
 .pytest_cache/
+hub/.env
 
 # OS / editor
 .DS_Store

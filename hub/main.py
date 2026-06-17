@@ -3,11 +3,16 @@ import time
 import threading
 from datetime import datetime
 from pathlib import Path
+import os
+from os.path import join, dirname
+from dotenv import load_dotenv
 
 from flask import Flask, Response, jsonify, send_file, request, render_template
 
+dotenv_path = join(dirname(__file__), '.env')
+load_dotenv(dotenv_path)
 
-ESP_HOST = "192.168.0.31"   # IP dell'ESP32
+ESP_HOST = os.environ.get("IP_ESP")   # IP dell'ESP32
 ESP_PORT = 3131
 
 WEB_HOST = "0.0.0.0"
