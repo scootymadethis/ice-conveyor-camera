@@ -76,6 +76,66 @@
             </button>
           </div>
 
+          <div class="field">
+            <div class="quality-line">
+              <label for="contrastLevel">Contrasto</label>
+              <div id="contrastLevelValue" class="quality-value">0</div>
+            </div>
+
+            <input
+              type="range"
+              min="-5"
+              max="5"
+              value="0"
+              step="1"
+              id="contrastLevel"
+            />
+
+            <div class="hint">Da -5 a +5.</div>
+
+            <div class="quality-line">
+              <label for="saturationLevel">Saturazione</label>
+              <div id="saturationLevelValue" class="quality-value">0</div>
+            </div>
+
+            <input
+              type="range"
+              min="-5"
+              max="5"
+              value="0"
+              step="1"
+              id="saturationLevel"
+            />
+
+            <div class="hint">Da -5 a +5.</div>
+
+            <div class="quality-line">
+              <label for="brightnessLevel">Luminosità</label>
+              <div id="brightnessLevelValue" class="quality-value">0</div>
+            </div>
+
+            <input
+              type="range"
+              min="-5"
+              max="5"
+              value="0"
+              step="1"
+              id="brightnessLevel"
+            />
+
+            <div class="hint">Da -5 a +5.</div>
+
+            <button
+              id="postProcessingBtn"
+              onclick="applyPostProcessing()"
+              style="margin-top: 8px"
+            >
+              Applica post-processing (contrasto, saturazione, luminosità)
+            </button>
+          </div>
+
+          <div class="field"></div>
+
           <button id="applyBtn" onclick="applyConfig()">
             Applica configurazione
           </button>
