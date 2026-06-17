@@ -10,7 +10,7 @@ body {
 }
 
 .page {
-  max-width: 1200px;
+  max-width: 1600px;
   margin: 0 auto;
   padding: 32px;
 }
@@ -30,21 +30,27 @@ h1 {
   font-size: 14px;
 }
 
+/* ===== LAYOUT ===== */
+
 .layout {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: 220px 340px 1fr;
   gap: 24px;
   align-items: start;
 }
 
-.panel {
+/* ===== PANELS ===== */
+
+.presetPanel,
+.mainPanel {
   border: 1px solid #1f2937;
   border-radius: 16px;
   background: #151923;
   padding: 18px;
 }
 
-.panel h2 {
+.presetPanel h2,
+.mainPanel h2 {
   margin: 0 0 16px 0;
   font-size: 18px;
 }
@@ -62,11 +68,13 @@ label {
 }
 
 select,
-input[type="range"] {
+input[type="range"],
+input[type="text"] {
   width: 100%;
 }
 
-select {
+select,
+input[type="text"] {
   padding: 10px;
   border-radius: 8px;
   border: 1px solid #374151;
@@ -150,7 +158,7 @@ button:disabled {
     0 0,
     0 14px,
     14px -14px,
-    -14px 0px;
+    -14px 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -192,11 +200,27 @@ button:disabled {
   font-family: Consolas, monospace;
 }
 
-@media (max-width: 900px) {
-  .page {
-    padding: 18px;
-  }
+#aeBtn {
+  background: #d97706;
+}
 
+#aeBtn:hover {
+  filter: brightness(1.15);
+}
+
+#aeBtn:disabled {
+  background: #374151;
+  color: #9ca3af;
+  filter: none;
+}
+
+#postProcessingBtn {
+  margin-top: 12px;
+}
+
+/* ===== MOBILE ===== */
+
+@media (max-width: 1200px) {
   .layout {
     grid-template-columns: 1fr;
   }
@@ -210,16 +234,25 @@ button:disabled {
   }
 }
 
-#aeBtn {
-  background: #d97706;
+#elimPresetBtn {
+  background-color: rgb(201, 37, 37);
+}
+#tempistiche {
+  /*margin-top: 10px;*/
+  border-radius: 15px;
+  padding: 10px;
+  border: 1px solid #687085;
+  color: #687085;
+  font-size: 0.9em;
 }
 
-#aeBtn:hover {
-  filter: brightness(1.15);
+.ms {
+  font-size: 1.2em;
 }
-
-#aeBtn:disabled {
-  background: #374151;
-  color: #9ca3af;
-  filter: none;
+.small-status {
+  margin-top: 10px;
+  color: #93c5fd;
+  font-family: Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.4;
 }

@@ -9,6 +9,7 @@
 
 // --- Wi-Fi -------------------------------------------------------------------
 #define WIFI_CONNECT_TIMEOUT_MS 10000
+#define WIFI_TX_POWER WIFI_POWER_19_5dBm
 
 
 // --- Capture loop ------------------------------------------------------------
@@ -19,4 +20,6 @@
 
 // --- Camera ------------------------------------------------------------------
 #define CAMERA_XCLK_FREQ_HZ     20000000
-#define CAMERA_FB_COUNT         1
+#define CAMERA_FB_COUNT         2
+#define TCP_SEND_CHUNK_BYTES     1460
+#define DISCARD_STALE_FRAMES     1

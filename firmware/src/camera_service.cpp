@@ -1,8 +1,138 @@
+#include <Arduino.h>
+#include <string.h>
+#include <LittleFS.h>
+#include <ArduinoJson.h>
+
 #include "camera_service.h"
 #include "camera_pins.h"
 #include "app_config.h"
-#include <Arduino.h>
-#include <string.h>
+#include "file_utils.h"
+
+const char *FILE_PATH = "/config/camera.json";
+
+bool save_camera_config(
+    framesize_t fs,
+    int jpeg_quality,
+    int ae,
+    int contrast,
+    int saturation,
+    int brightness)
+{
+    JsonDocument doc;
+
+    doc["framesize"] = camera_framesize_to_string(fs);
+    doc["quality"] = jpeg_quality;
+    doc["exposure"] = ae;
+    doc["contrast"] = contrast;
+    doc["saturation"] = saturation;
+    doc["brightness"] = brightness;
+
+    String json;
+    serializeJson(doc, json);
+
+    bool ok = FileUtils::writeText(
+        LittleFS,
+        FILE_PATH,
+        json);
+
+    JsonDocument logDoc;
+    logDoc["component"] = "config";
+    logDoc["event"] = ok ? "camera_config_saved" : "camera_config_save_failed";
+    logDoc["path"] = FILE_PATH;
+
+    if (ok)
+    {
+        logDoc["config"].set(doc.as<JsonObject>());
+    }
+
+    String logJson;
+    serializeJson(logDoc, logJson);
+    Serial.println(logJson);
+
+    return ok;
+}
+
+bool load_camera_config(
+    framesize_t &fs,
+    int &jpeg_quality,
+    int &ae,
+    int &contrast,
+    int &saturation,
+    int &brightness)
+{
+    String json;
+
+    bool ok = FileUtils::readText(LittleFS, FILE_PATH, json);
+
+    if (!ok)
+    {
+        JsonDocument logDoc;
+        logDoc["component"] = "config";
+        logDoc["event"] = "camera_config_read_failed";
+        logDoc["path"] = FILE_PATH;
+
+        String logJson;
+        serializeJson(logDoc, logJson);
+        Serial.println(logJson);
+
+        return false;
+    }
+
+    JsonDocument doc;
+
+    DeserializationError error = deserializeJson(doc, json);
+
+    if (error)
+    {
+        JsonDocument logDoc;
+        logDoc["component"] = "config";
+        logDoc["event"] = "camera_config_parse_failed";
+        logDoc["path"] = FILE_PATH;
+        logDoc["error"] = error.c_str();
+
+        String logJson;
+        serializeJson(logDoc, logJson);
+        Serial.println(logJson);
+
+        return false;
+    }
+
+    const char *framesizeName = doc["framesize"] | DEFAULT_FRAMESIZE;
+
+    fs = camera_framesize_from_string(framesizeName);
+    jpeg_quality = doc["quality"] | DEFAULT_JPEG_QUALITY;
+    ae = doc["exposure"] | 0;
+    contrast = doc["contrast"] | 0;
+    saturation = doc["saturation"] | 0;
+    brightness = doc["brightness"] | 0;
+
+    if (jpeg_quality < 4 || jpeg_quality > 63)
+        jpeg_quality = DEFAULT_JPEG_QUALITY;
+
+    if (ae < -2 || ae > 2)
+        ae = 0;
+
+    if (contrast < -2 || contrast > 2)
+        contrast = 0;
+
+    if (saturation < -2 || saturation > 2)
+        saturation = 0;
+
+    if (brightness < -2 || brightness > 2)
+        brightness = 0;
+
+    JsonDocument logDoc;
+    logDoc["component"] = "config";
+    logDoc["event"] = "camera_config_loaded";
+    logDoc["path"] = FILE_PATH;
+    logDoc["config"].set(doc.as<JsonObject>());
+
+    String logJson;
+    serializeJson(logDoc, logJson);
+    Serial.println(logJson);
+
+    return true;
+}
 
 // In base alla qualità selezionata si prende il valore della risoluzione dalla variabile
 framesize_t camera_framesize_from_string(const char *name)
@@ -125,10 +255,56 @@ bool camera_init()
         sensor->set_raw_gma(sensor, 1); // gamma correction
         sensor->set_dcw(sensor, 1);
 
+        framesize_t savedFs;
+        int savedQuality;
+        int savedAe;
+        int savedContrast;
+        int savedSaturation;
+        int savedBrightness;
+
+        bool configOk = load_camera_config(
+            savedFs,
+            savedQuality,
+            savedAe,
+            savedContrast,
+            savedSaturation,
+            savedBrightness);
+
+        if (configOk)
+        {
+            Serial.println("[camera] applying saved camera config");
+
+            sensor->set_framesize(sensor, savedFs);
+            delay(150);
+
+            sensor->set_quality(sensor, savedQuality);
+            delay(150);
+
+            sensor->set_exposure_ctrl(sensor, 1);
+            sensor->set_gain_ctrl(sensor, 1);
+            sensor->set_ae_level(sensor, savedAe);
+
+            sensor->set_contrast(sensor, savedContrast);
+            delay(100);
+
+            sensor->set_saturation(sensor, savedSaturation);
+            delay(100);
+
+            sensor->set_brightness(sensor, savedBrightness);
+            delay(100);
+        }
+        else
+        {
+            Serial.println("[camera] no valid saved config, using defaults");
+
+            sensor->set_quality(sensor, DEFAULT_JPEG_QUALITY);
+            sensor->set_brightness(sensor, 0);
+            sensor->set_contrast(sensor, 0);
+            sensor->set_saturation(sensor, 0);
+            sensor->set_ae_level(sensor, 0);
+        }
+
         // Neutro
-        sensor->set_brightness(sensor, 0);
-        sensor->set_contrast(sensor, 0);
-        sensor->set_saturation(sensor, 0);
         sensor->set_special_effect(sensor, 0);
 
         // Auto esposizione/gain
@@ -166,46 +342,120 @@ bool camera_set_basic_settings(const char *framesize_name, int jpeg_quality, int
 
     if (!sensor)
     {
-        Serial.println("[camera] sensor handle unavailable");
+        JsonDocument logDoc;
+        logDoc["component"] = "camera";
+        logDoc["event"] = "camera_settings_apply_failed";
+        logDoc["error"] = "sensor_handle_unavailable";
+
+        String logJson;
+        serializeJson(logDoc, logJson);
+        Serial.println(logJson);
+
         return false;
     }
 
     if (jpeg_quality < 4 || jpeg_quality > 63)
     {
-        Serial.printf("[camera] invalid jpeg quality: %d\n", jpeg_quality);
+        JsonDocument logDoc;
+        logDoc["component"] = "camera";
+        logDoc["event"] = "camera_settings_validation_failed";
+        logDoc["field"] = "quality";
+        logDoc["value"] = jpeg_quality;
+        logDoc["min"] = 4;
+        logDoc["max"] = 63;
+
+        String logJson;
+        serializeJson(logDoc, logJson);
+        Serial.println(logJson);
+
         return false;
     }
 
     if (ae < -2 || ae > 2)
     {
-        Serial.printf("[camera] invalid exposure: %d (must be -2..+2)\n", ae);
+        JsonDocument logDoc;
+        logDoc["component"] = "camera";
+        logDoc["event"] = "camera_settings_validation_failed";
+        logDoc["field"] = "exposure";
+        logDoc["value"] = ae;
+        logDoc["min"] = -2;
+        logDoc["max"] = 2;
+
+        String logJson;
+        serializeJson(logDoc, logJson);
+        Serial.println(logJson);
+
         return false;
     }
 
     if (contrast < -2 || contrast > 2)
     {
-        Serial.printf("[camera] invalid contrast: %d (must be -2..+2)\n", contrast);
+        JsonDocument logDoc;
+        logDoc["component"] = "camera";
+        logDoc["event"] = "camera_settings_validation_failed";
+        logDoc["field"] = "contrast";
+        logDoc["value"] = contrast;
+        logDoc["min"] = -2;
+        logDoc["max"] = 2;
+
+        String logJson;
+        serializeJson(logDoc, logJson);
+        Serial.println(logJson);
+
         return false;
     }
 
     if (saturation < -2 || saturation > 2)
     {
-        Serial.printf("[camera] invalid saturation: %d (must be -2..+2)\n", saturation);
+        JsonDocument logDoc;
+        logDoc["component"] = "camera";
+        logDoc["event"] = "camera_settings_validation_failed";
+        logDoc["field"] = "saturation";
+        logDoc["value"] = saturation;
+        logDoc["min"] = -2;
+        logDoc["max"] = 2;
+
+        String logJson;
+        serializeJson(logDoc, logJson);
+        Serial.println(logJson);
+
         return false;
     }
 
     if (brightness < -2 || brightness > 2)
     {
-        Serial.printf("[camera] invalid brightness: %d (must be -2..+2)\n", brightness);
+        JsonDocument logDoc;
+        logDoc["component"] = "camera";
+        logDoc["event"] = "camera_settings_validation_failed";
+        logDoc["field"] = "brightness";
+        logDoc["value"] = brightness;
+        logDoc["min"] = -2;
+        logDoc["max"] = 2;
+
+        String logJson;
+        serializeJson(logDoc, logJson);
+        Serial.println(logJson);
+
         return false;
     }
 
     framesize_t fs = camera_framesize_from_string(framesize_name);
 
-    Serial.printf(
-        "[camera] applying settings: framesize=%s quality=%d exposure=%d contrast=%d saturation=%d brightness=%d\n",
-        camera_framesize_to_string(fs),
-        jpeg_quality, ae, contrast, saturation, brightness);
+    {
+        JsonDocument logDoc;
+        logDoc["component"] = "camera";
+        logDoc["event"] = "camera_settings_apply_requested";
+        logDoc["config"]["framesize"] = camera_framesize_to_string(fs);
+        logDoc["config"]["quality"] = jpeg_quality;
+        logDoc["config"]["exposure"] = ae;
+        logDoc["config"]["contrast"] = contrast;
+        logDoc["config"]["saturation"] = saturation;
+        logDoc["config"]["brightness"] = brightness;
+
+        String logJson;
+        serializeJson(logDoc, logJson);
+        Serial.println(logJson);
+    }
 
     int r1 = sensor->set_framesize(sensor, fs);
     delay(150);
@@ -253,11 +503,52 @@ bool camera_set_basic_settings(const char *framesize_name, int jpeg_quality, int
 
     if (r1 != 0 || r2 != 0 || r3 != 0 || r4 != 0 || r5 != 0 || r6 != 0)
     {
-        Serial.printf("[camera] apply failed: framesize=%d quality=%d exposure=%d contrast=%d saturation=%d brightness=%d\n", r1, r2, r3, r4, r5, r6);
+        JsonDocument logDoc;
+        logDoc["component"] = "camera";
+        logDoc["event"] = "camera_settings_apply_failed";
+        logDoc["result"]["framesize"] = r1;
+        logDoc["result"]["quality"] = r2;
+        logDoc["result"]["exposure"] = r3;
+        logDoc["result"]["contrast"] = r4;
+        logDoc["result"]["saturation"] = r5;
+        logDoc["result"]["brightness"] = r6;
+
+        String logJson;
+        serializeJson(logDoc, logJson);
+        Serial.println(logJson);
+
         return false;
     }
 
-    Serial.println("[camera] settings applied OK");
+    {
+        JsonDocument logDoc;
+        logDoc["component"] = "camera";
+        logDoc["event"] = "camera_settings_applied";
+
+        String logJson;
+        serializeJson(logDoc, logJson);
+        Serial.println(logJson);
+    }
+
+    bool saveOk = save_camera_config(
+        fs,
+        jpeg_quality,
+        ae,
+        contrast,
+        saturation,
+        brightness);
+
+    {
+        JsonDocument logDoc;
+        logDoc["component"] = "camera";
+        logDoc["event"] = saveOk ? "camera_settings_saved" : "camera_settings_save_failed";
+        logDoc["path"] = FILE_PATH;
+
+        String logJson;
+        serializeJson(logDoc, logJson);
+        Serial.println(logJson);
+    }
+
     return true;
 }
 bool camera_set_ae_level(int ae_level)

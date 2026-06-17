@@ -1,155 +1,159 @@
 <!doctype html>
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <title>ESP32 Camera Control</title>
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='style.css') }}"
-    />
-  </head>
-  <body>
-    <main class="page">
-      <div class="header">
-        <h1>ESP32 Camera</h1>
-        <div class="subtitle">
-          Configura risoluzione e qualità JPEG, poi richiedi un frame all'ESP32.
-        </div>
+
+<head>
+  <meta charset="utf-8" />
+  <title>ESP32 Camera Control</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+
+<body>
+  <main class="page">
+    <div class="header">
+      <h1>ESP32 Camera</h1>
+      <div class="subtitle">
+        Configura risoluzione e qualità JPEG, poi richiedi un frame all'ESP32.
       </div>
+    </div>
 
       <div class="layout">
-        <aside class="panel">
-          <h2>Configurazione camera</h2>
+        <aside class="presetPanel">
+          <h2>Presets</h2>
 
           <div class="field">
-            <label for="framesize">Risoluzione</label>
-            <select id="framesize">
-              <option value="QVGA">QVGA - 320x240</option>
-              <option value="VGA">VGA - 640x480</option>
-              <option value="SVGA">SVGA - 800x600</option>
-              <option value="XGA">XGA - 1024x768</option>
-              <option value="HD" selected>HD - 1280x720</option>
-              <option value="SXGA">SXGA - 1280x1024</option>
-              <option value="UXGA">UXGA - 1600x1200</option>
+            <select id="presets">
+              <option value="">Caricamento preset...</option>
             </select>
-            <div class="hint">
-              Risoluzioni alte generano JPEG più grandi e richiedono più tempo.
-            </div>
+            <button id="savePresetBtn">Salva conf.<br />come preset</button>
+            <button id="elimPresetBtn">Elimina preset</button>
           </div>
-
-          <div class="field">
-            <div class="quality-line">
-              <label for="quality">Qualità JPEG</label>
-              <div id="qualityValue" class="quality-value">10</div>
-            </div>
-
-            <input id="quality" type="range" min="4" max="30" value="10" />
-
-            <div class="hint">
-              Su ESP32-CAM numero più basso = qualità migliore. 10-15 è spesso
-              più stabile di 5.
-            </div>
-          </div>
-
-          <div class="field">
-            <div class="quality-line">
-              <label for="aeLevel">Compensazione esposizione (AE)</label>
-              <div id="aeLevelValue" class="quality-value">0</div>
-            </div>
-
-            <input
-              type="range"
-              min="-2"
-              max="2"
-              value="0"
-              step="1"
-              id="aeLevel"
-            />
-
-            <div class="hint">
-              Da -2 (scuro) a +2 (luminoso). Utile in ambienti bui. Richiede
-              auto-esposizione attiva.
-            </div>
-          </div>
-
-          <div class="field">
-            <div class="quality-line">
-              <label for="contrastLevel">Contrasto</label>
-              <div id="contrastLevelValue" class="quality-value">0</div>
-            </div>
-
-            <input
-              type="range"
-              min="-2"
-              max="2"
-              value="0"
-              step="1"
-              id="contrastLevel"
-            />
-          </div>
-
-          <div class="field">
-            <div class="quality-line">
-              <label for="saturationLevel">Saturazione</label>
-              <div id="saturationLevelValue" class="quality-value">0</div>
-            </div>
-
-            <input
-              type="range"
-              min="-2"
-              max="2"
-              value="0"
-              step="1"
-              id="saturationLevel"
-            />
-          </div>
-
-          <div class="field">
-            <div class="quality-line">
-              <label for="brightnessLevel">Luminosità</label>
-              <div id="brightnessLevelValue" class="quality-value">0</div>
-            </div>
-
-            <input
-              type="range"
-              min="-2"
-              max="2"
-              value="0"
-              step="1"
-              id="brightnessLevel"
-            />
-          </div>
-
-          <button id="applyBtn" onclick="applyConfig()">
-            Applica configurazione
-          </button>
-          <button id="captureBtn" class="secondary" onclick="captureFrame()">
-            Scatta frame
-          </button>
         </aside>
 
-        <section>
-          <div id="status" class="status">Pronto.</div>
+        <aside class="mainPanel">
+          <h2>Connessione ESP</h2>
 
-          <div class="viewer">
-            <div id="emptyState" class="empty">
-              <div class="empty-title">Nessun frame ricevuto</div>
-              <div class="empty-subtitle">
-                Premi “Scatta frame” per acquisire la prima immagine.
-              </div>
+          <div class="field">
+            <label for="espHost">IP ESP32</label>
+            <input id="espHost" type="text" placeholder="es. 192.168.1.50" inputmode="numeric" autocomplete="off" />
+            <div class="hint">
+              Porta TCP: <span id="espPort">3131</span>. Cambiando IP la connessione corrente viene chiusa e il prossimo comando userà il nuovo ESP.
             </div>
-
-            <img id="frame" alt="" />
+            <button id="saveEspHostBtn" type="button">Salva IP ESP</button>
+            <div id="espHostStatus" class="small-status">IP ESP non caricato.</div>
           </div>
 
-          <div class="meta">
-            <div id="filename">File: —</div>
-            <div id="bytes">Dimensione: —</div>
-          </div>
-        </section>
-      </div>
-    </main>
+          <h2>Configurazione camera</h2>
 
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
-  </body>
+        <div class="field">
+          <label for="framesize">Risoluzione</label>
+          <select id="framesize">
+            <option value="QVGA">QVGA - 320x240</option>
+            <option value="VGA">VGA - 640x480</option>
+            <option value="SVGA">SVGA - 800x600</option>
+            <option value="XGA">XGA - 1024x768</option>
+            <option value="HD" selected>HD - 1280x720</option>
+            <option value="SXGA">SXGA - 1280x1024</option>
+            <option value="UXGA">UXGA - 1600x1200</option>
+          </select>
+          <div class="hint">
+            Risoluzioni alte generano JPEG più grandi e richiedono più tempo.
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="quality-line">
+            <label for="quality">Qualità JPEG</label>
+            <div id="qualityValue" class="quality-value">10</div>
+          </div>
+
+          <input id="quality" type="range" min="4" max="30" value="10" />
+
+          <div class="hint">
+            Su ESP32-CAM numero più basso = qualità migliore. 10-15 è spesso
+            più stabile di 5.
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="quality-line">
+            <label for="aeLevel">Compensazione esposizione (AE)</label>
+            <div id="aeLevelValue" class="quality-value">0</div>
+          </div>
+
+          <input type="range" min="-2" max="2" value="0" step="1" id="aeLevel" />
+
+          <div class="hint">
+            Da -2 (scuro) a +2 (luminoso). Utile in ambienti bui. Richiede
+            auto-esposizione attiva.
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="quality-line">
+            <label for="contrastLevel">Contrasto</label>
+            <div id="contrastLevelValue" class="quality-value">0</div>
+          </div>
+
+          <input type="range" min="-2" max="2" value="0" step="1" id="contrastLevel" />
+        </div>
+
+        <div class="field">
+          <div class="quality-line">
+            <label for="saturationLevel">Saturazione</label>
+            <div id="saturationLevelValue" class="quality-value">0</div>
+          </div>
+
+          <input type="range" min="-2" max="2" value="0" step="1" id="saturationLevel" />
+        </div>
+
+        <div class="field">
+          <div class="quality-line">
+            <label for="brightnessLevel">Luminosità</label>
+            <div id="brightnessLevelValue" class="quality-value">0</div>
+          </div>
+
+          <input type="range" min="-2" max="2" value="0" step="1" id="brightnessLevel" />
+        </div>
+
+        <button id="applyBtn" onclick="applyConfig()">
+          Applica configurazione
+        </button>
+        <button id="captureBtn" class="secondary" onclick="captureFrame()">
+          Scatta frame
+        </button>
+      </aside>
+
+      <section>
+        <div id="status" class="status">Pronto.</div>
+
+        <div class="viewer">
+          <div id="emptyState" class="empty">
+            <div class="empty-title">Nessun frame ricevuto</div>
+            <div class="empty-subtitle">
+              Premi “Scatta frame” per acquisire la prima immagine.
+            </div>
+          </div>
+
+          <img id="frame" alt="" />
+        </div>
+
+        <div class="meta">
+
+          <p id="filename">File: -</p>
+          <p id="bytes">Dimensione: -</p>
+
+          <div id="tempistiche">
+            <p>Tempo di scatto: <strong id="tCapture" class="ms">-</strong></p>
+            <p>Transito di rete: <strong id="tTransit" class="ms">-</strong></p>
+            <p>Latenza totale: <strong id="tTotal" class="ms">-</strong></p>
+          </div>
+
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+
 </html>

@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <string.h>
+#include <time.h>
 
 static char s_ip[20] = "0.0.0.0";
 
