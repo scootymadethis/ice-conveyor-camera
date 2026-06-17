@@ -280,6 +280,10 @@ def config_route():
 
     framesize = str(data.get("framesize", "HD")).upper()
     quality = int(data.get("quality", 10))
+    ae = int(data.get("ae", 0))
+    contrast = int(data.get("contrast", 0))
+    saturation = int(data.get("saturation", 0))
+    brightness = int(data.get("brightness", 0))
 
     allowed_framesizes = {
         "QQVGA", "QVGA", "CIF", "VGA", "SVGA", "XGA", "HD", "SXGA", "UXGA"
@@ -296,12 +300,36 @@ def config_route():
             "ok": False,
             "error": "Quality must be between 4 and 63. Lower number = better quality.",
         })
+    
+    if ae < -2 or ae > 2:
+        return jsonify({
+            "ok": False,
+            "error": "Exposure must be between -2 and 2."
+        })
 
+    if contrast < -2 or contrast > 2:
+        return jsonify({
+            "ok": False,
+            "error": "Contrast must be between -2 and 2."
+        })
+    
+    if saturation < -2 or saturation > 2:
+        return jsonify({
+            "ok": False,
+            "error": "Saturation must be between -2 and 2."
+        })
+    
+    if brightness < -2 or brightness > 2:
+        return jsonify({
+            "ok": False,
+            "error": "Brightness must be between -2 and 2."
+        })
+    
     with sock_lock:
         try:
             ensure_esp_connected()
 
-            command = f"config {framesize} {quality}\n"
+            command = f"config {framesize} {quality} {ae} {contrast} {saturation} {brightness}\n"
             print("[esp] sending:", command.strip())
 
             sock.sendall(command.encode())
@@ -315,6 +343,10 @@ def config_route():
                 "ok": True,
                 "framesize": framesize,
                 "quality": quality,
+                "ae": ae,
+                "contrast": contrast,
+                "saturation": saturation,
+                "brightness": brightness,
                 "message": result["message"],
             })
 

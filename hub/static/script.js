@@ -8,13 +8,37 @@ const bytesEl = document.getElementById("bytes");
 const framesizeEl = document.getElementById("framesize");
 const qualityEl = document.getElementById("quality");
 const qualityValueEl = document.getElementById("qualityValue");
+
 const aeLevelEl = document.getElementById("aeLevel");
 const aeLevelValueEl = document.getElementById("aeLevelValue");
-const aeBtn = document.getElementById("aeBtn");
+
+const contrastLevelEl = document.getElementById("contrastLevel");
+const contrastLevelValueEl = document.getElementById("contrastLevelValue");
+
+const saturationLevelEl = document.getElementById("saturationLevel");
+const saturationLevelValueEl = document.getElementById("saturationLevelValue");
+
+const brightnessLevelEl = document.getElementById("brightnessLevel");
+const brightnessLevelValueEl = document.getElementById("brightnessLevelValue");
 
 aeLevelEl.addEventListener("input", () => {
   const v = Number(aeLevelEl.value);
   aeLevelValueEl.textContent = v > 0 ? "+" + v : String(v);
+});
+
+contrastLevelEl.addEventListener("input", () => {
+  const v = Number(contrastLevelEl.value);
+  contrastLevelValueEl.textContent = v > 0 ? "+" + v : String(v);
+});
+
+saturationLevelEl.addEventListener("input", () => {
+  const v = Number(saturationLevelEl.value);
+  saturationLevelValueEl.textContent = v > 0 ? "+" + v : String(v);
+});
+
+brightnessLevelEl.addEventListener("input", () => {
+  const v = Number(brightnessLevelEl.value);
+  brightnessLevelValueEl.textContent = v > 0 ? "+" + v : String(v);
 });
 
 qualityEl.addEventListener("input", () => {
@@ -24,7 +48,6 @@ qualityEl.addEventListener("input", () => {
 function setBusy(isBusy) {
   captureBtn.disabled = isBusy;
   applyBtn.disabled = isBusy;
-  aeBtn.disabled = isBusy;
 }
 
 function showEmpty() {
@@ -61,6 +84,10 @@ async function applyConfig() {
 
   const framesize = framesizeEl.value;
   const quality = Number(qualityEl.value);
+  const ae = Number(aeLevelEl.value);
+  const contrast = Number(contrastLevelEl.value);
+  const saturation = Number(saturationLevelEl.value);
+  const brightness = Number(brightnessLevelEl.value);
 
   status.textContent = "Invio configurazione camera...";
 
@@ -73,6 +100,10 @@ async function applyConfig() {
       body: JSON.stringify({
         framesize: framesize,
         quality: quality,
+        ae: ae,
+        contrast: contrast,
+        saturation: saturation,
+        brightness: brightness,
       }),
     });
 
@@ -87,7 +118,15 @@ async function applyConfig() {
       "Configurazione applicata: " +
       data.framesize +
       ", quality " +
-      data.quality;
+      data.quality +
+      ", esposizione " +
+      data.ae +
+      ", contrasto " +
+      data.contrast +
+      ", saturazione " +
+      data.saturation +
+      ", luminosità " +
+      data.brightness;
   } catch (err) {
     status.textContent = "Errore web config: " + err;
   } finally {

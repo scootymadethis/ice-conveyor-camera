@@ -160,7 +160,7 @@ void camera_release(camera_fb_t *fb)
         esp_camera_fb_return(fb);
 }
 
-bool camera_set_basic_settings(const char *framesize_name, int jpeg_quality)
+bool camera_set_basic_settings(const char *framesize_name, int jpeg_quality, int ae, int contrast, int saturation, int brightness)
 {
     sensor_t *sensor = esp_camera_sensor_get();
 
@@ -176,17 +176,56 @@ bool camera_set_basic_settings(const char *framesize_name, int jpeg_quality)
         return false;
     }
 
+    if (ae < -2 || ae > 2)
+    {
+        Serial.printf("[camera] invalid exposure: %d (must be -2..+2)\n", ae);
+        return false;
+    }
+
+    if (contrast < -2 || contrast > 2)
+    {
+        Serial.printf("[camera] invalid contrast: %d (must be -2..+2)\n", contrast);
+        return false;
+    }
+
+    if (saturation < -2 || saturation > 2)
+    {
+        Serial.printf("[camera] invalid saturation: %d (must be -2..+2)\n", saturation);
+        return false;
+    }
+
+    if (brightness < -2 || brightness > 2)
+    {
+        Serial.printf("[camera] invalid brightness: %d (must be -2..+2)\n", brightness);
+        return false;
+    }
+
     framesize_t fs = camera_framesize_from_string(framesize_name);
 
     Serial.printf(
-        "[camera] applying settings: framesize=%s quality=%d\n",
+        "[camera] applying settings: framesize=%s quality=%d exposure=%d contrast=%d saturation=%d brightness=%d\n",
         camera_framesize_to_string(fs),
-        jpeg_quality);
+        jpeg_quality, ae, contrast, saturation, brightness);
 
     int r1 = sensor->set_framesize(sensor, fs);
     delay(150);
 
     int r2 = sensor->set_quality(sensor, jpeg_quality);
+    delay(150);
+
+    // mi assicuro che l'auto-esposizione sia abilitata prima di settare il livello
+    sensor->set_exposure_ctrl(sensor, 1);
+    sensor->set_gain_ctrl(sensor, 1);
+
+    int r3 = sensor->set_ae_level(sensor, ae);
+
+    int r4 = sensor->set_contrast(sensor, contrast);
+    delay(150);
+
+    int r5 = sensor->set_saturation(sensor, saturation);
+    delay(150);
+
+    int r6 = sensor->set_brightness(sensor, brightness);
     delay(150);
 
     // Manteniamo i fix colore/pixel attivi
@@ -212,9 +251,9 @@ bool camera_set_basic_settings(const char *framesize_name, int jpeg_quality)
         delay(80);
     }
 
-    if (r1 != 0 || r2 != 0)
+    if (r1 != 0 || r2 != 0 || r3 != 0 || r4 != 0 || r5 != 0 || r6 != 0)
     {
-        Serial.printf("[camera] apply failed: framesize=%d quality=%d\n", r1, r2);
+        Serial.printf("[camera] apply failed: framesize=%d quality=%d exposure=%d contrast=%d saturation=%d brightness=%d\n", r1, r2, r3, r4, r5, r6);
         return false;
     }
 

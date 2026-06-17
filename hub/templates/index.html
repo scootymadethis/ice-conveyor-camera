@@ -70,10 +70,6 @@
               Da -2 (scuro) a +2 (luminoso). Utile in ambienti bui. Richiede
               auto-esposizione attiva.
             </div>
-
-            <button id="aeBtn" onclick="applyAeLevel()" style="margin-top: 8px">
-              Applica esposizione
-            </button>
           </div>
 
           <div class="field">
@@ -84,15 +80,15 @@
 
             <input
               type="range"
-              min="-5"
-              max="5"
+              min="-2"
+              max="2"
               value="0"
               step="1"
               id="contrastLevel"
             />
+          </div>
 
-            <div class="hint">Da -5 a +5.</div>
-
+          <div class="field">
             <div class="quality-line">
               <label for="saturationLevel">Saturazione</label>
               <div id="saturationLevelValue" class="quality-value">0</div>
@@ -100,15 +96,15 @@
 
             <input
               type="range"
-              min="-5"
-              max="5"
+              min="-2"
+              max="2"
               value="0"
               step="1"
               id="saturationLevel"
             />
+          </div>
 
-            <div class="hint">Da -5 a +5.</div>
-
+          <div class="field">
             <div class="quality-line">
               <label for="brightnessLevel">Luminosità</label>
               <div id="brightnessLevelValue" class="quality-value">0</div>
@@ -116,25 +112,13 @@
 
             <input
               type="range"
-              min="-5"
-              max="5"
+              min="-2"
+              max="2"
               value="0"
               step="1"
               id="brightnessLevel"
             />
-
-            <div class="hint">Da -5 a +5.</div>
-
-            <button
-              id="postProcessingBtn"
-              onclick="applyPostProcessing()"
-              style="margin-top: 8px"
-            >
-              Applica post-processing (contrasto, saturazione, luminosità)
-            </button>
           </div>
-
-          <div class="field"></div>
 
           <button id="applyBtn" onclick="applyConfig()">
             Applica configurazione

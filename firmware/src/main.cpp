@@ -160,24 +160,28 @@ void loop()
 
             char framesize_name[16] = {0};
             int quality = -1;
+            int ae = -1;
+            int contrast = -1;
+            int saturation = -1;
+            int brightness = -1;
 
-            int parsed = sscanf(message.c_str(), "config %15s %d", framesize_name, &quality);
+            int parsed = sscanf(message.c_str(), "config %15s %d %d %d %d %d", framesize_name, &quality, &ae, &contrast, &saturation, &brightness);
 
-            if (parsed != 2)
+            if (parsed != 6)
             {
                 activeClient.println("CONFIG_ERROR invalid format");
                 return;
             }
 
-            bool ok = camera_set_basic_settings(framesize_name, quality);
+            bool ok = camera_set_basic_settings(framesize_name, quality, ae, contrast, saturation, brightness);
 
             if (ok)
             {
-                activeClient.printf("CONFIG_OK %s %d\n", framesize_name, quality);
+                activeClient.printf("CONFIG_OK %s %d %d %d %d %d\n", framesize_name, quality, ae, contrast, saturation, brightness);
             }
             else
             {
-                activeClient.printf("CONFIG_ERROR failed %s %d\n", framesize_name, quality);
+                activeClient.printf("CONFIG_ERROR failed %s %d %d %d %d %d\n", framesize_name, quality, ae, contrast, saturation, brightness);
             }
         }
         else if (message.startsWith("ae_level "))
