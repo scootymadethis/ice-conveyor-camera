@@ -22,6 +22,9 @@ hub/frames/
 .pytest_cache/
 hub/.env
 
+# Testing
+test-sensore/
+
 # OS / editor
 .DS_Store
 Thumbs.db

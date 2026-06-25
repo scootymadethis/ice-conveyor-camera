@@ -39,35 +39,56 @@ function Require-Secrets {
 }
 
 function Find-Python {
-    # PlatformIO supports Python 3.6-3.13; prefer a known-good launcher if present
-    # (the default Python may be too new for PlatformIO).
+    if (-not (Get-Command py -ErrorAction SilentlyContinue)) {
+        return $null
+    }
 
     if ($PyVersion) {
         $v = [string]$PyVersion
 
-        # Convert "3.13.0" -> "3.13"
         if ($v -match '^(\d+)\.(\d+)') {
             $v = "$($Matches[1]).$($Matches[2])"
         }
 
-        return @("py", "-$v")
+        try {
+            & py "-$v" --version 1>$null 2>$null
+            if ($LASTEXITCODE -eq 0) {
+                return @("py", "-$v")
+            }
+        } catch {}
     }
 
     foreach ($v in "3.13", "3.12", "3.11", "3.10") {
-        & py "-$v" --version 1>$null 2>$null
-        if ($LASTEXITCODE -eq 0) {
-            return @("py", "-$v")
-        }
+        try {
+            & py "-$v" --version 1>$null 2>$null
+            if ($LASTEXITCODE -eq 0) {
+                return @("py", "-$v")
+            }
+        } catch {}
     }
 
-    return @("py")
+    try {
+        & py --version 1>$null 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            return @("py")
+        }
+    } catch {}
+
+    return $null
 }
 
 switch ($Command) {
     "venv" {
         $pyCmd = Find-Python
+
+        if (-not $pyCmd) {
+            Write-Host "Python non trovato. Installa Python 3.10-3.13 o abilita il launcher py." -ForegroundColor Yellow
+            exit 2
+        }
+
         $exe = $pyCmd[0]
         $pre = @(); if ($pyCmd.Count -gt 1) { $pre = $pyCmd[1..($pyCmd.Count - 1)] }
+
         Write-Host "creating .venv with: $($pyCmd -join ' ')" -ForegroundColor Cyan
         & $exe @pre -m venv .venv
         & $venvPy -m pip install -q -U pip

@@ -6,9 +6,37 @@
 #include "camera_service.h"
 #include "camera_pins.h"
 #include "app_config.h"
+#include "app_log.h"
 #include "file_utils.h"
 
 const char *FILE_PATH = "/config/camera.json";
+
+static framesize_t gCurrentFramesize = camera_framesize_from_string(DEFAULT_FRAMESIZE);
+static int gCurrentQuality = DEFAULT_JPEG_QUALITY;
+static int gCurrentAe = 0;
+static int gCurrentContrast = 0;
+static int gCurrentSaturation = 0;
+static int gCurrentBrightness = 0;
+
+static void remember_camera_config(framesize_t fs, int quality, int ae, int contrast, int saturation, int brightness)
+{
+    gCurrentFramesize = fs;
+    gCurrentQuality = quality;
+    gCurrentAe = ae;
+    gCurrentContrast = contrast;
+    gCurrentSaturation = saturation;
+    gCurrentBrightness = brightness;
+}
+
+void camera_fill_config_json(JsonObject obj)
+{
+    obj["framesize"] = camera_framesize_to_string(gCurrentFramesize);
+    obj["quality"] = gCurrentQuality;
+    obj["ae"] = gCurrentAe;
+    obj["contrast"] = gCurrentContrast;
+    obj["saturation"] = gCurrentSaturation;
+    obj["brightness"] = gCurrentBrightness;
+}
 
 bool save_camera_config(
     framesize_t fs,
@@ -159,7 +187,7 @@ framesize_t camera_framesize_from_string(const char *name)
         if (strcasecmp(name, e.n) == 0)
             return e.fs;
     }
-    Serial.printf("[camera] unknown framesize '%s', using QVGA\n", name);
+    log_warnf("camera", "unknown framesize name='%s'; falling back to QVGA", name);
     return FRAMESIZE_QVGA;
 }
 
@@ -221,12 +249,12 @@ bool camera_init()
 
     if (psramFound())
     {
-        Serial.println("[camera] PSRAM found: yes");
+        log_info("camera", "PSRAM detected; using configured frame buffer count");
     }
     else
     {
         // Without PSRAM we cannot hold multiple JPEG buffers; degrade safely.
-        Serial.println("[camera] PSRAM found: no — falling back to DRAM, fb_count=1");
+        log_warn("camera", "PSRAM not detected; falling back to DRAM with fb_count=1 and QVGA");
         config.fb_location = CAMERA_FB_IN_DRAM;
         config.fb_count = 1;
         config.frame_size = FRAMESIZE_QVGA;
@@ -235,7 +263,7 @@ bool camera_init()
     esp_err_t err = esp_camera_init(&config);
     if (err != ESP_OK)
     {
-        Serial.printf("[camera] init failed: 0x%x\n", err);
+        log_errorf("camera", "esp_camera_init failed code=0x%x", err);
         return false;
     }
 
@@ -272,7 +300,7 @@ bool camera_init()
 
         if (configOk)
         {
-            Serial.println("[camera] applying saved camera config");
+            log_info("camera", "applying saved camera settings from LittleFS");
 
             sensor->set_framesize(sensor, savedFs);
             delay(150);
@@ -292,30 +320,32 @@ bool camera_init()
 
             sensor->set_brightness(sensor, savedBrightness);
             delay(100);
+
+            remember_camera_config(savedFs, savedQuality, savedAe, savedContrast, savedSaturation, savedBrightness);
         }
         else
         {
-            Serial.println("[camera] no valid saved config, using defaults");
+            log_warn("camera", "no valid saved camera settings; applying defaults");
 
             sensor->set_quality(sensor, DEFAULT_JPEG_QUALITY);
             sensor->set_brightness(sensor, 0);
             sensor->set_contrast(sensor, 0);
             sensor->set_saturation(sensor, 0);
             sensor->set_ae_level(sensor, 0);
+            remember_camera_config(camera_framesize_from_string(DEFAULT_FRAMESIZE), DEFAULT_JPEG_QUALITY, 0, 0, 0, 0);
         }
 
         // Neutro
         sensor->set_special_effect(sensor, 0);
 
-        // Auto esposizione/gain
+        // Auto esposizione/gain: lascia invariato il livello AE caricato/salvato.
         sensor->set_exposure_ctrl(sensor, 1);
         sensor->set_gain_ctrl(sensor, 1);
-        sensor->set_ae_level(sensor, 0);
 
-        Serial.println("[camera] sensor tuning applied");
+        log_info("camera", "sensor tuning applied");
     }
 
-    Serial.println("[camera] init OK");
+    log_info("camera", "camera init complete");
     return true;
 }
 
@@ -325,7 +355,7 @@ camera_fb_t *camera_capture()
     camera_fb_t *fb = esp_camera_fb_get();
     if (!fb)
     {
-        Serial.println("[camera] capture failed (fb == null)");
+        log_error("camera", "esp_camera_fb_get returned null frame buffer");
     }
     return fb;
 }
@@ -530,6 +560,8 @@ bool camera_set_basic_settings(const char *framesize_name, int jpeg_quality, int
         Serial.println(logJson);
     }
 
+    remember_camera_config(fs, jpeg_quality, ae, contrast, saturation, brightness);
+
     bool saveOk = save_camera_config(
         fs,
         jpeg_quality,
@@ -555,7 +587,7 @@ bool camera_set_ae_level(int ae_level)
 {
     if (ae_level < -2 || ae_level > 2)
     {
-        Serial.printf("[camera] invalid ae_level: %d (must be -2..+2)\n", ae_level);
+        log_warnf("camera", "invalid ae_level=%d allowed_range=-2..2", ae_level);
         return false;
     }
 
@@ -563,7 +595,7 @@ bool camera_set_ae_level(int ae_level)
 
     if (!sensor)
     {
-        Serial.println("[camera] sensor handle unavailable");
+        log_error("camera", "sensor handle unavailable");
         return false;
     }
 
@@ -573,7 +605,13 @@ bool camera_set_ae_level(int ae_level)
 
     int r = sensor->set_ae_level(sensor, ae_level);
 
-    Serial.printf("[camera] ae_level set to %d (result=%d)\n", ae_level, r);
+    if (r == 0)
+    {
+        gCurrentAe = ae_level;
+        save_camera_config(gCurrentFramesize, gCurrentQuality, gCurrentAe, gCurrentContrast, gCurrentSaturation, gCurrentBrightness);
+    }
+
+    log_infof("camera", "ae_level applied value=%d result=%d", ae_level, r);
 
     return r == 0;
 }

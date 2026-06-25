@@ -1,57 +1,64 @@
-# Lab network setup
+# Setup rete e router
 
-The camera only ever needs the **hub's** address. You never configure or look
-up the ESP's IP.
+## Obiettivo
 
-## Addresses
+Il PC che esegue il hub Flask e l'ESP32 firmware devono vedersi sulla stessa LAN. Il protocollo usa TCP porta `3131` dal PC verso l'ESP32.
+
+## Requisiti
+
+- Stessa rete Wi-Fi o stesso segmento LAN.
+- Nessun isolamento client/AP isolation sul router.
+- IP ESP stabile, consigliato tramite DHCP reservation.
+- Firewall PC che consenta Python/Flask in rete privata.
+
+## Configurazione consigliata
+
+1. Riserva l'IP dell'ESP32 nel router usando il MAC address dell'ESP.
+2. Metti quell'IP in `hub/.env`:
 
 ```text
-Router (lab Wi-Fi)
-  SSID:      PalletCamLab
-  Password:  long but easy to type
-  DHCP:      enabled
-  Router IP: 192.168.10.1
-
-PC (hub)
-  Static IP: 192.168.10.2
-  Hub port:  5000
-
-ESP32-S3-EYE
-  IP:        any (DHCP)
-  Knows:     http://192.168.10.2:5000   (HUB_BASE_URL in secrets.h)
+IP_ESP=192.168.1.50
 ```
 
-## Why a static IP on the PC
+3. Flash del firmware con `firmware/include/secrets.h` corretto:
 
-The camera has the hub URL hard-coded (`HUB_BASE_URL`). If the PC's address
-changes, the camera can't find it. Pin the PC to `192.168.10.2` — either a
-static address on the PC's adapter or a DHCP reservation in the router.
+```cpp
+#define WIFI_SSID "nome_wifi"
+#define WIFI_PASSWORD "password_wifi"
+```
 
-## Set the PC's static IP
+4. Avvia monitor seriale e cerca:
 
-- **Windows:** Settings → Network → Wi-Fi/Ethernet → IP assignment → Manual →
-  IP `192.168.10.2`, mask `255.255.255.0`, gateway `192.168.10.1`.
-- **Linux (NetworkManager):**
-  ```bash
-  nmcli con mod "PalletCamLab" ipv4.addresses 192.168.10.2/24 \
-      ipv4.gateway 192.168.10.1 ipv4.method manual
-  nmcli con up "PalletCamLab"
-  ```
+```text
+[wifi] got ip=...
+[tcp] server listening port=3131
+```
 
-## Firewall
+## Diagnostica
 
-Allow inbound TCP **5000** on the PC, otherwise the camera's `POST /frame` is
-silently dropped. On Windows the first `uvicorn` run usually prompts to allow
-it — accept on private networks.
+### Il hub non si connette
 
-## Verify
+- Controlla che l'IP in UI o `.env` sia quello stampato dal firmware.
+- Riavvia hub dopo cambio rete.
+- Verifica che il router non abbia isolamento client.
+- Prova da PowerShell:
 
-From the PC: `curl http://192.168.10.2:5000/ready` → `{"ready":true}`.
-From the camera's serial log you should then see `[hub] ready`.
+```powershell
+Test-NetConnection 192.168.1.50 -Port 3131
+```
 
-## Credentials hygiene
+### Il TCP si collega ma la cattura fallisce
 
-Wi-Fi credentials live only in `firmware/include/secrets.h`, which is
-gitignored. Never commit them. If a password has leaked, rotate it.
-WPA2-PSK is assumed; enterprise/EAP (e.g. eduroam) is a future profile, not the
-default.
+- Se vedi `PHOTO_REQUEST` ma non `FRAME`, il problema è camera/firmware.
+- Se vedi `FRAME` ma non `latest.jpg`, il problema è trasferimento TCP o disco lato hub.
+- Se il trasferimento si blocca a metà, riduci framesize o aumenta qualità numerica JPEG.
+
+## ESP-NOW
+
+ESP-NOW serve solo per inviare l'ultimo frame al detector. Il peer MAC si configura in `firmware/include/app_config.h`:
+
+```cpp
+#define ESP_NOW_PEER_MAC {0xE0, 0x72, 0xA1, 0xD6, 0x2C, 0xD4}
+```
+
+Il detector deve essere acceso e in ascolto prima di chiamare `/espnow/send-last`.

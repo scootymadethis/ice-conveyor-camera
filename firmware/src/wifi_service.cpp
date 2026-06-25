@@ -1,64 +1,84 @@
 #include "wifi_service.h"
-#include "app_config.h"
+
 #include <Arduino.h>
 #include <WiFi.h>
 #include <string.h>
-#include <time.h>
+
+#include "app_config.h"
+#include "app_log.h"
 
 static char s_ip[20] = "0.0.0.0";
 
-static void _on_wifi_event(WiFiEvent_t event) {
-    switch (event) {
-        case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
-            Serial.println("[wifi] disconnected");
-            break;
-        case ARDUINO_EVENT_WIFI_STA_GOT_IP:
-            strncpy(s_ip, WiFi.localIP().toString().c_str(), sizeof(s_ip) - 1);
-            s_ip[sizeof(s_ip) - 1] = '\0';
-            Serial.printf("[wifi] IP: %s  RSSI: %d dBm\n", s_ip, WiFi.RSSI());
-            break;
-        default:
-            break;
+static void on_wifi_event(WiFiEvent_t event)
+{
+    switch (event)
+    {
+    case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
+        log_warn("wifi", "station disconnected from access point");
+        break;
+    case ARDUINO_EVENT_WIFI_STA_GOT_IP:
+        strncpy(s_ip, WiFi.localIP().toString().c_str(), sizeof(s_ip) - 1);
+        s_ip[sizeof(s_ip) - 1] = '\0';
+        log_infof("wifi", "got ip=%s rssi=%d dBm", s_ip, WiFi.RSSI());
+        break;
+    default:
+        break;
     }
 }
 
-bool wifi_connect(unsigned long timeout_ms) {
-    static bool s_event_registered = false;
-    if (!s_event_registered) {
-        WiFi.onEvent(_on_wifi_event);
-        s_event_registered = true;
+bool wifi_connect(unsigned long timeout_ms)
+{
+    static bool eventRegistered = false;
+    if (!eventRegistered)
+    {
+        WiFi.onEvent(on_wifi_event);
+        eventRegistered = true;
     }
 
-    Serial.printf("[wifi] connecting to SSID '%s'...\n", WIFI_SSID);
-    WiFi.disconnect(false);     // reset stale stack state before (re)connecting
+    log_infof("wifi", "connecting ssid='%s' timeout_ms=%lu", WIFI_SSID, timeout_ms);
+    WiFi.disconnect(false);
     WiFi.mode(WIFI_STA);
-    WiFi.setSleep(false);  // keep latency low for frame uploads
+    WiFi.setSleep(false);
     WiFi.setAutoReconnect(true);
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
     unsigned long start = millis();
-    while (WiFi.status() != WL_CONNECTED && (millis() - start) < timeout_ms) {
+    while (WiFi.status() != WL_CONNECTED && (millis() - start) < timeout_ms)
+    {
         delay(250);
-        Serial.print('.');
     }
-    Serial.println();
 
-    if (WiFi.status() != WL_CONNECTED) {
-        Serial.println("[wifi] connect FAILED");
+    if (WiFi.status() != WL_CONNECTED)
+    {
+        log_warn("wifi", "connection timed out");
         return false;
     }
-    // IP and RSSI are logged by _on_wifi_event(ARDUINO_EVENT_WIFI_STA_GOT_IP).
+
     return true;
 }
 
-bool wifi_is_connected() { return WiFi.status() == WL_CONNECTED; }
+bool wifi_is_connected()
+{
+    return WiFi.status() == WL_CONNECTED;
+}
 
-bool wifi_ensure_connected() {
-    if (wifi_is_connected()) return true;
-    Serial.println("[wifi] link lost, reconnecting...");
+bool wifi_ensure_connected()
+{
+    if (wifi_is_connected())
+    {
+        return true;
+    }
+
+    log_warn("wifi", "link lost; reconnecting now");
     return wifi_connect(WIFI_CONNECT_TIMEOUT_MS);
 }
 
-const char *wifi_ip() { return s_ip; }
+const char *wifi_ip()
+{
+    return s_ip;
+}
 
-int wifi_rssi() { return wifi_is_connected() ? WiFi.RSSI() : 0; }
+int wifi_rssi()
+{
+    return wifi_is_connected() ? WiFi.RSSI() : 0;
+}

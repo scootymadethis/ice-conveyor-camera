@@ -1,80 +1,138 @@
-# HTTP protocol
+# Protocollo TCP hub <-> firmware
 
-The ESP32 is always the HTTP **client**; the hub is the **server**. Three
-endpoints, all under `HUB_BASE_URL` (e.g. `http://192.168.10.2:5000`).
+Il firmware ESP32 ascolta su TCP porta `3131`. Il hub mantiene una connessione persistente e usa righe terminate da `\n` per i comandi e le risposte. Il payload JPEG viene inviato come binario dopo l'handshake `FRAME`/`READY`.
 
-## `GET /ready`
+## Comandi camera
 
-Liveness only — "is the hub alive?". The camera will not stream until this
-returns success.
+### `camera`
 
-**Response 200:**
+Richiede un frame manuale.
 
-```json
-{ "ready": true }
+Risposta/handshake:
+
+```text
+PHOTO_REQUEST REASON manual
+ACK
+FRAME <bytes> REASON manual CAPTURE_MS <ms>
+READY
+<jpeg bytes>
 ```
 
-## `GET /config`
+Errori possibili:
 
-Current configuration. The hub re-reads `hub_config.json` on every request, so
-changes take effect without restarting the hub or re-flashing the camera.
-
-**Response 200:**
-
-```json
-{
-  "enabled": true,
-  "session_id": "2026-06-11_test_conveyor",
-  "frame_interval_ms": 200,
-  "framesize": "QVGA",
-  "jpeg_quality": 12,
-  "max_failures": 5
-}
+```text
+BUSY camera
+BUSY lidar_capture
+CAMERA_ERROR
 ```
 
-Identity is device-owned: `/config` carries **no** `camera_id` — the camera
-always reports its compiled `CAMERA_ID` via `X-Camera-Id`.
+### `config <framesize> <quality> <ae> <contrast> <saturation> <brightness>`
 
-- `enabled` — when `false`, the camera returns to waiting (no capture).
-- `frame_interval_ms` — milliseconds between frame captures; must be > 0.
-- `framesize` — one of `QQVGA, QVGA, CIF, VGA, SVGA, XGA, HD, SXGA, UXGA`.
-- `jpeg_quality` — ESP driver scale, **lower = better** (less compression).
-- `max_failures` — consecutive upload failures before the camera gives up and
-  re-polls `/ready`.
+Aggiorna e salva la configurazione camera.
 
-## `POST /frame`
+Risposte:
 
-Upload a single JPEG. The body is the **raw JPEG bytes**; all metadata travels
-in headers (no multipart).
-
-**Headers:**
-
-| Header             | Meaning                                   |
-|--------------------|-------------------------------------------|
-| `Content-Type`     | `image/jpeg`                              |
-| `X-Camera-Id`      | stable camera identity (device-owned)     |
-| `X-Session-Id`     | current session                           |
-| `X-Frame-Id`       | monotonic frame counter                   |
-| `X-Capture-Ts-Us`  | capture timestamp, microseconds (`micros()`) |
-| `X-Framesize`      | framesize name in use                     |
-| `X-Jpeg-Quality`   | jpeg quality in use                       |
-| `X-Free-Heap`      | free heap on the device (bytes)           |
-| `X-Rssi`           | Wi-Fi RSSI (dBm)                          |
-
-**Response 200:**
-
-```json
-{ "ok": true, "saved": "frames/esp32s3-eye-01_00000001.jpg", "size": 18342 }
+```text
+CONFIG_OK HD 10 0 0 0 0
+CONFIG_ERROR <reason>
 ```
 
-**Response 400:** empty body.
+Valori accettati:
 
-Notes:
-- `X-Camera-Id` is the source of truth for identity; `/config` carries no
-  `camera_id`.
-- The stored filename uses a **server-assigned, contiguous** index (per camera
-  per session), not `X-Frame-Id`. The hub never reuses an index, so a camera
-  reboot (which resets `X-Frame-Id` to 1) cannot overwrite earlier frames.
-  `X-Frame-Id` is still recorded in `metadata.csv`.
-- Missing/invalid numeric headers default to `0` server-side rather than
-  failing the upload.
+- `framesize`: `QQVGA`, `QVGA`, `CIF`, `VGA`, `SVGA`, `XGA`, `HD`, `SXGA`, `UXGA`
+- `quality`: 4-63, dove numero più basso = qualità più alta
+- `ae`, `contrast`, `saturation`, `brightness`: -2..2
+
+### `ae_level <value>`
+
+Aggiorna solo il livello auto-esposizione.
+
+Risposte:
+
+```text
+AE_OK <value>
+AE_ERROR <reason>
+```
+
+## Preset camera
+
+I preset sono JSON in LittleFS sotto `/presets`.
+
+```text
+list_presets
+preset_save {json compatto}
+preset_get <name>
+preset_delete <name>
+```
+
+Risposte:
+
+```text
+PRESETS_OK <json-array>
+PRESET_SAVE_OK <json-object>
+PRESET_GET_OK <json-object>
+PRESET_DELETE_OK <json-object>
+PRESET_ERROR <json-object>
+```
+
+## LiDAR
+
+Il polling `lidar_status` è considerato ad alta frequenza: il firmware e il hub evitano log rumorosi per questo comando.
+
+```text
+lidar_status
+lidar_base <mm>
+lidar_base_current
+lidar_sample_config <good_sample_count> <delay_ms>
+lidar_enable <0|1>
+```
+
+Risposte:
+
+```text
+LIDAR_OK <json-object>
+LIDAR_ERROR <json-object>
+```
+
+Campi principali di `LIDAR_OK`:
+
+- `lidar_ok`: sensore inizializzato
+- `enabled`: trigger LiDAR abilitato
+- `baseline_ready`: baseline disponibile
+- `base_mm`: baseline attuale o `null`
+- `current_mm`: distanza corrente o `null`
+- `threshold_mm`: soglia trigger calcolata
+- `good_sample_count`, `sample_delay_ms`: configurazione media campioni
+
+## ESP-NOW
+
+```text
+espnow_send_last
+```
+
+Invia al detector l'ultimo frame JPEG catturato dal firmware.
+
+Risposte:
+
+```text
+ESPNOW_OK {"ok":true,"bytes":...,"chunk_count":...,"chunk_bytes":200,"frame_id":...}
+ESPNOW_ERROR {"ok":false,"error":"..."}
+```
+
+## Frame ESP-NOW
+
+Il chunk ESP-NOW usa la stessa struttura su firmware e detector:
+
+```cpp
+struct EspNowFrameChunk {
+    uint32_t magic;       // 0x49434546
+    uint32_t frameId;
+    uint32_t totalLen;
+    uint16_t chunkIndex;
+    uint16_t chunkCount;
+    uint16_t payloadLen;
+    uint8_t payload[200];
+};
+```
+
+Il detector valida `magic`, dimensioni, indici e limite massimo immagine prima di copiare il payload nel buffer.

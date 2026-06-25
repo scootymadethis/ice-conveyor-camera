@@ -1,156 +1,258 @@
 <!doctype html>
-<html>
+<html lang="it">
 
 <head>
   <meta charset="utf-8" />
-  <title>ESP32 Camera Control</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ESP32 Vision Hub</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
 </head>
 
 <body>
-  <main class="page">
-    <div class="header">
-      <h1>ESP32 Camera</h1>
-      <div class="subtitle">
-        Configura risoluzione e qualità JPEG, poi richiedi un frame all'ESP32.
+  <div class="shell-bg" aria-hidden="true">
+    <span class="orb orb-one"></span>
+    <span class="orb orb-two"></span>
+    <span class="grid-glow"></span>
+  </div>
+
+  <main class="app-shell">
+    <header class="hero">
+      <div>
+        <div class="eyebrow">ESP32 camera control</div>
+        <h1>Vision Hub</h1>
+        <p class="hero-copy">Controllo camera, trigger LiDAR, preset e tempi di acquisizione in una dashboard unica.</p>
       </div>
-    </div>
 
-      <div class="layout">
-        <aside class="presetPanel">
-          <h2>Presets</h2>
-
-          <div class="field">
-            <select id="presets">
-              <option value="">Caricamento preset...</option>
-            </select>
-            <button id="savePresetBtn">Salva conf.<br />come preset</button>
-            <button id="elimPresetBtn">Elimina preset</button>
-          </div>
-        </aside>
-
-        <aside class="mainPanel">
-          <h2>Connessione ESP</h2>
-
-          <div class="field">
-            <label for="espHost">IP ESP32</label>
-            <input id="espHost" type="text" placeholder="es. 192.168.1.50" inputmode="numeric" autocomplete="off" />
-            <div class="hint">
-              Porta TCP: <span id="espPort">3131</span>. Cambiando IP la connessione corrente viene chiusa e il prossimo comando userà il nuovo ESP.
-            </div>
-            <button id="saveEspHostBtn" type="button">Salva IP ESP</button>
-            <div id="espHostStatus" class="small-status">IP ESP non caricato.</div>
-          </div>
-
-          <h2>Configurazione camera</h2>
-
-        <div class="field">
-          <label for="framesize">Risoluzione</label>
-          <select id="framesize">
-            <option value="QVGA">QVGA - 320x240</option>
-            <option value="VGA">VGA - 640x480</option>
-            <option value="SVGA">SVGA - 800x600</option>
-            <option value="XGA">XGA - 1024x768</option>
-            <option value="HD" selected>HD - 1280x720</option>
-            <option value="SXGA">SXGA - 1280x1024</option>
-            <option value="UXGA">UXGA - 1600x1200</option>
-          </select>
-          <div class="hint">
-            Risoluzioni alte generano JPEG più grandi e richiedono più tempo.
-          </div>
+      <div class="hero-actions">
+        <div class="connection-pill">
+          <span class="pulse-dot"></span>
+          <span id="espHostStatus">IP ESP non caricato.</span>
         </div>
+        <button id="captureBtn" class="btn btn-primary" type="button">Scatta frame</button>
+        <button id="sendEspNowBtn" class="btn btn-soft" type="button">Invia ultimo frame ESP-NOW</button>
+      </div>
+    </header>
 
-        <div class="field">
-          <div class="quality-line">
-            <label for="quality">Qualità JPEG</label>
-            <div id="qualityValue" class="quality-value">10</div>
+    <section class="dashboard-grid dashboard-tabs-layout">
+      <section class="preview-card glass-card sticky-preview">
+        <div class="card-head preview-head">
+          <div>
+            <span class="section-kicker">Live frame</span>
+            <h2>Ultima acquisizione</h2>
           </div>
-
-          <input id="quality" type="range" min="4" max="30" value="10" />
-
-          <div class="hint">
-            Su ESP32-CAM numero più basso = qualità migliore. 10-15 è spesso
-            più stabile di 5.
-          </div>
+          <div id="status" class="status-chip">Pronto.</div>
         </div>
-
-        <div class="field">
-          <div class="quality-line">
-            <label for="aeLevel">Compensazione esposizione (AE)</label>
-            <div id="aeLevelValue" class="quality-value">0</div>
-          </div>
-
-          <input type="range" min="-2" max="2" value="0" step="1" id="aeLevel" />
-
-          <div class="hint">
-            Da -2 (scuro) a +2 (luminoso). Utile in ambienti bui. Richiede
-            auto-esposizione attiva.
-          </div>
-        </div>
-
-        <div class="field">
-          <div class="quality-line">
-            <label for="contrastLevel">Contrasto</label>
-            <div id="contrastLevelValue" class="quality-value">0</div>
-          </div>
-
-          <input type="range" min="-2" max="2" value="0" step="1" id="contrastLevel" />
-        </div>
-
-        <div class="field">
-          <div class="quality-line">
-            <label for="saturationLevel">Saturazione</label>
-            <div id="saturationLevelValue" class="quality-value">0</div>
-          </div>
-
-          <input type="range" min="-2" max="2" value="0" step="1" id="saturationLevel" />
-        </div>
-
-        <div class="field">
-          <div class="quality-line">
-            <label for="brightnessLevel">Luminosità</label>
-            <div id="brightnessLevelValue" class="quality-value">0</div>
-          </div>
-
-          <input type="range" min="-2" max="2" value="0" step="1" id="brightnessLevel" />
-        </div>
-
-        <button id="applyBtn" onclick="applyConfig()">
-          Applica configurazione
-        </button>
-        <button id="captureBtn" class="secondary" onclick="captureFrame()">
-          Scatta frame
-        </button>
-      </aside>
-
-      <section>
-        <div id="status" class="status">Pronto.</div>
 
         <div class="viewer">
-          <div id="emptyState" class="empty">
+          <div id="emptyState" class="empty-state">
+            <div class="empty-icon">⌁</div>
             <div class="empty-title">Nessun frame ricevuto</div>
-            <div class="empty-subtitle">
-              Premi “Scatta frame” per acquisire la prima immagine.
-            </div>
+            <div class="empty-subtitle">Premi “Scatta frame” oppure attendi un trigger LiDAR.</div>
           </div>
-
-          <img id="frame" alt="" />
+          <img id="frame" alt="Ultimo frame ESP32" />
         </div>
 
-        <div class="meta">
+        <div class="metrics-row">
+          <article class="metric-card">
+            <span>Tempo scatto</span>
+            <strong id="tCapture" class="ms">-</strong>
+          </article>
+          <article class="metric-card">
+            <span>Rete</span>
+            <strong id="tTransit" class="ms">-</strong>
+          </article>
+          <article class="metric-card">
+            <span>Totale</span>
+            <strong id="tTotal" class="ms">-</strong>
+          </article>
+        </div>
 
+        <div class="file-meta">
           <p id="filename">File: -</p>
           <p id="bytes">Dimensione: -</p>
-
-          <div id="tempistiche">
-            <p>Tempo di scatto: <strong id="tCapture" class="ms">-</strong></p>
-            <p>Transito di rete: <strong id="tTransit" class="ms">-</strong></p>
-            <p>Latenza totale: <strong id="tTotal" class="ms">-</strong></p>
-          </div>
-
         </div>
       </section>
-    </div>
+
+      <section class="workspace-card glass-card" aria-label="Configurazioni">
+        <div class="card-head workspace-head">
+          <div>
+            <span class="section-kicker">Configurazioni</span>
+            <h2>Controlli</h2>
+          </div>
+          <button id="applyBtn" class="btn btn-primary" type="button">Applica configurazione</button>
+        </div>
+
+        <nav class="tabs-nav" aria-label="Sezioni configurazione">
+          <button class="tab-btn is-active" type="button" data-tab="camera" aria-controls="tab-camera" aria-selected="true">Camera</button>
+          <button class="tab-btn" type="button" data-tab="lidar" aria-controls="tab-lidar" aria-selected="false">LiDAR</button>
+          <button class="tab-btn" type="button" data-tab="connessione" aria-controls="tab-connessione" aria-selected="false">Connessione</button>
+          {% if presets_enabled %}<button class="tab-btn" type="button" data-tab="preset" aria-controls="tab-preset" aria-selected="false">Preset</button>{% endif %}
+        </nav>
+
+        <div class="tabs-panels">
+          <section id="tab-camera" class="tab-panel is-active settings-card" data-tab-panel="camera">
+            <div class="panel-intro">
+              <div>
+                <span class="section-kicker">Camera</span>
+                <h3>Configurazione immagine</h3>
+              </div>
+              <p class="hint">Regola qualità e resa del frame senza perdere di vista il preview.</p>
+            </div>
+
+            <div class="settings-grid settings-grid-tabs">
+              <div class="field field-wide">
+                <label class="field-label" for="framesize">Risoluzione</label>
+                <select id="framesize">
+                  <option value="QVGA">QVGA - 320x240</option>
+                  <option value="VGA">VGA - 640x480</option>
+                  <option value="SVGA">SVGA - 800x600</option>
+                  <option value="XGA">XGA - 1024x768</option>
+                  <option value="HD" selected>HD - 1280x720</option>
+                  <option value="SXGA">SXGA - 1280x1024</option>
+                  <option value="UXGA">UXGA - 1600x1200</option>
+                </select>
+                <p class="hint">Risoluzioni alte generano JPEG più grandi e aumentano i tempi.</p>
+              </div>
+
+              <div class="field range-field">
+                <div class="label-row">
+                  <label class="field-label" for="quality">Qualità JPEG</label>
+                  <output id="qualityValue" class="value-pill">10</output>
+                </div>
+                <input id="quality" type="range" min="4" max="30" value="10" />
+                <p class="hint">Su ESP32-CAM numero più basso = qualità migliore.</p>
+              </div>
+
+              <div class="field range-field">
+                <div class="label-row">
+                  <label class="field-label" for="aeLevel">Esposizione AE</label>
+                  <output id="aeLevelValue" class="value-pill">0</output>
+                </div>
+                <input id="aeLevel" type="range" min="-2" max="2" value="0" step="1" />
+              </div>
+
+              <div class="field range-field">
+                <div class="label-row">
+                  <label class="field-label" for="contrastLevel">Contrasto</label>
+                  <output id="contrastLevelValue" class="value-pill">0</output>
+                </div>
+                <input id="contrastLevel" type="range" min="-2" max="2" value="0" step="1" />
+              </div>
+
+              <div class="field range-field">
+                <div class="label-row">
+                  <label class="field-label" for="saturationLevel">Saturazione</label>
+                  <output id="saturationLevelValue" class="value-pill">0</output>
+                </div>
+                <input id="saturationLevel" type="range" min="-2" max="2" value="0" step="1" />
+              </div>
+
+              <div class="field range-field">
+                <div class="label-row">
+                  <label class="field-label" for="brightnessLevel">Luminosità</label>
+                  <output id="brightnessLevelValue" class="value-pill">0</output>
+                </div>
+                <input id="brightnessLevel" type="range" min="-2" max="2" value="0" step="1" />
+              </div>
+            </div>
+          </section>
+
+          <section id="tab-lidar" class="tab-panel lidar-card" data-tab-panel="lidar" hidden>
+            <div class="panel-intro panel-intro-split">
+              <div>
+                <span class="section-kicker">LiDAR</span>
+                <h3>Trigger e baseline</h3>
+              </div>
+              <div class="lidar-head-actions">
+                <label class="switch-row" for="lidarEnabledToggle">
+                  <input id="lidarEnabledToggle" type="checkbox" checked />
+                  <span>Trigger LiDAR</span>
+                </label>
+                <div class="distance-tile">
+                  <span>Distanza attuale</span>
+                  <strong id="lidarCurrentDistance">-</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="lidar-grid lidar-grid-tabs">
+              <div class="field">
+                <label class="field-label" for="lidarBaseDistance">Baseline pavimento</label>
+                <div class="stepper-row">
+                  <button id="lidarBaseMinusBtn" class="stepper-btn" type="button" aria-label="Riduci baseline">−</button>
+                  <input id="lidarBaseDistance" type="number" min="1" max="8191" step="5" placeholder="mm" />
+                  <button id="lidarBasePlusBtn" class="stepper-btn" type="button" aria-label="Aumenta baseline">+</button>
+                </div>
+                <div class="button-row">
+                  <button id="applyLidarBaseBtn" class="btn btn-soft" type="button">Aggiorna baseline</button>
+                  <button id="setLidarBaseBtn" class="btn btn-ghost" type="button">Usa distanza attuale</button>
+                </div>
+              </div>
+
+              <div class="field sample-panel">
+                <div class="sample-grid">
+                  <div>
+                    <label class="field-label" for="lidarSampleCount">Misure valide</label>
+                    <input id="lidarSampleCount" type="number" min="1" max="25" step="1" placeholder="3" />
+                  </div>
+                  <div>
+                    <label class="field-label" for="lidarSampleDelay">Delay campioni</label>
+                    <input id="lidarSampleDelay" type="number" min="0" max="500" step="5" placeholder="10 ms" />
+                  </div>
+                  <div>
+                    <label class="field-label" for="lidarPostFrameDelay">Delay post-frame</label>
+                    <input id="lidarPostFrameDelay" type="number" min="0" max="30000" step="100" placeholder="2500 ms" />
+                  </div>
+                </div>
+                <button id="applyLidarSampleConfigBtn" class="btn btn-soft full-width" type="button">Aggiorna timing LiDAR</button>
+              </div>
+            </div>
+
+            <div id="lidarStatus" class="small-status">LiDAR floor baseline not loaded.</div>
+          </section>
+
+          <section id="tab-connessione" class="tab-panel" data-tab-panel="connessione" hidden>
+            <div class="panel-intro panel-intro-split">
+              <div>
+                <span class="section-kicker">Connessione</span>
+                <h3>ESP32</h3>
+              </div>
+              <span class="mini-badge">TCP <span id="espPort">3131</span></span>
+            </div>
+
+            <div class="tab-form-card field">
+              <label class="field-label" for="espHost">Indirizzo IP</label>
+              <div class="input-action-row">
+                <input id="espHost" type="text" placeholder="192.168.1.50" inputmode="numeric" autocomplete="off" />
+                <button id="saveEspHostBtn" class="btn btn-soft" type="button">Salva</button>
+              </div>
+              <p class="hint">Cambiando IP la connessione corrente viene chiusa; il prossimo comando userà il nuovo ESP.</p>
+            </div>
+          </section>
+
+          {% if presets_enabled %}<section id="tab-preset" class="tab-panel" data-tab-panel="preset" hidden>
+            <div class="panel-intro">
+              <div>
+                <span class="section-kicker">Preset</span>
+                <h3>Profili camera</h3>
+              </div>
+              <p class="hint">Salva una configurazione o applica rapidamente un profilo già esistente.</p>
+            </div>
+
+            <div class="tab-form-card field">
+              <label class="field-label" for="presets">Preset salvati</label>
+              <select id="presets">
+                <option value="">Caricamento preset...</option>
+              </select>
+              <div class="button-row">
+                <button id="savePresetBtn" class="btn btn-soft" type="button">Salva preset</button>
+                <button id="elimPresetBtn" class="btn btn-danger" type="button">Elimina</button>
+              </div>
+            </div>
+          </section>{% endif %}
+        </div>
+      </section>
+    </section>
   </main>
 
   <script src="{{ url_for('static', filename='script.js') }}"></script>

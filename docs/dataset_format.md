@@ -1,55 +1,56 @@
-# Dataset format
+# Dataset e modello object detection
 
-Each capture session is a self-contained directory under `data/sessions/`.
+Il detector usa un modello FOMO/TFLite Micro con input `96x96x3` e griglia `12x12`. Le classi attuali sono:
 
 ```text
-data/
-└── sessions/
-    └── 2026-06-11_test_conveyor/
-        ├── frames/
-        │   ├── esp32s3-eye-01_00000001.jpg
-        │   ├── esp32s3-eye-01_00000002.jpg
-        │   └── esp32s3-eye-01_00000003.jpg
-        ├── metadata.csv
-        ├── config.json        # snapshot of the config used (written once)
-        └── notes.md           # optional, written by you
+0 background
+1 Lego
+2 Cover
 ```
 
-- **Filename:** `<camera_id>_<index:08d>.jpg`, where `index` is a
-  **server-assigned, contiguous** counter per (camera, session) — *not* the
-  device `frame_id`. The hub never reuses an index, so a camera reboot (which
-  resets `frame_id` to 1) cannot overwrite earlier frames.
-- **`config.json`:** the hub config in force when the session's first frame
-  arrived — keeps the session reproducible.
-- `data/` is **gitignored**; the dataset is not committed.
+Questi valori sono centralizzati in `detector/include/detector_config.h` e in `detector/src/detection_decoder.cpp`.
 
-## `metadata.csv`
+## Header generati
 
-One header row, then one row per frame.
+Il firmware detector richiede due header in `detector/include/`:
 
-```csv
-session_id,camera_id,frame_id,filename,server_ts,capture_ts_us,size_bytes,framesize,jpeg_quality,rssi,free_heap,label
-2026-06-11_test_conveyor,esp32s3-eye-01,1,frames/esp32s3-eye-01_00000001.jpg,2026-06-11T10:32:01.123456+00:00,987654321,18342,QVGA,12,-54,123456,
+- `model_data.h`: contiene `g_model[]`, `g_model_len`, `MODEL_IS_PLACEHOLDER`.
+- `test_image.h`: contiene `g_test_image[]`, `IMG_W`, `IMG_H`, `IMG_C`.
+
+Se `MODEL_IS_PLACEHOLDER` è true, il detector si ferma al boot con un log esplicito.
+
+## Formato frame live
+
+Il percorso live preferito è JPEG:
+
+```text
+firmware camera -> JPEG -> ESP-NOW chunks -> detector -> JPEG decode -> RGB888 -> quantizzazione int8 -> inferenza
 ```
 
-| Column          | Source              | Notes                                  |
-|-----------------|---------------------|----------------------------------------|
-| `session_id`    | `X-Session-Id`      |                                        |
-| `camera_id`     | `X-Camera-Id`       |                                        |
-| `frame_id`      | `X-Frame-Id`        | device counter; resets on reboot — gaps spot drops |
-| `filename`      | hub                 | relative to the session dir            |
-| `server_ts`     | hub                 | UTC ISO-8601, when the frame landed    |
-| `capture_ts_us` | `X-Capture-Ts-Us`   | device `micros()` at capture           |
-| `size_bytes`    | hub                 | JPEG length                            |
-| `framesize`     | `X-Framesize`       |                                        |
-| `jpeg_quality`  | `X-Jpeg-Quality`    |                                        |
-| `rssi`          | `X-Rssi`            | dBm                                    |
-| `free_heap`     | `X-Free-Heap`       | bytes                                  |
-| `label`         | you                 | empty at capture; fill in later        |
+Il detector supporta anche raw RGB888 solo se la dimensione è esattamente:
 
-## Labelling
+```text
+RAW_SRC_W * RAW_SRC_H * IMG_C = 96 * 96 * 3
+```
 
-`label` is intentionally empty during capture. Fill it afterwards (manually, or
-with a script that edits `metadata.csv`) — e.g. `pallet`, `empty`, `damaged`.
-Keeping labels in the CSV rather than in filenames means you can relabel without
-touching the image files.
+## Output seriale
+
+Ogni cella sopra soglia genera un log:
+
+```text
+[12345 ms][INFO][detect] class=Lego probability=0.84 cell=(6,4) px=(52,36)
+```
+
+Se non ci sono oggetti:
+
+```text
+[12345 ms][INFO][detect] no objects above confidence threshold
+```
+
+## Cambiare soglia o classi
+
+- Soglia: `MODEL_CONFIDENCE_THRESHOLD` in `detector/include/detector_config.h`.
+- Classi: `CLASS_NAMES` in `detector/src/detection_decoder.cpp`.
+- Input/griglia: `MODEL_INPUT_SIZE`, `MODEL_GRID_SIZE`, `MODEL_CLASS_COUNT` in `detector/include/detector_config.h`.
+
+Dopo ogni cambio modello, rigenera `model_data.h` e verifica che gli operatori registrati in `detector/src/model_runner.cpp` corrispondano al modello TFLite.
